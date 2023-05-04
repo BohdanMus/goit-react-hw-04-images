@@ -1,87 +1,74 @@
-import { Component } from 'react';
+import { useState } from 'react';
 import { getImages } from '../api/api';
 import { ImageGallery } from './ImageGallery/ImageGallery';
 import { Searchbar } from './Searchbar/Searchbar';
 import { Loader } from './Loader/Loader';
 import { Button } from './Button/Button';
 import { ErrorMessage } from './ImageGallery/ImageGallery.styled';
+import { useEffect } from 'react';
 
-export class App extends Component {
-  state = {
-    keyword: '',
-    images: [],
-    page: 1,
-    loading: false,
-    total: 1,
-    findByKeyword: true,
+export const App = () => {
+  const [keyword, setKeyword] = useState('');
+  const [images, setImages] = useState([]);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [total, setTotal] = useState(1);
+  const [findByKeyword, setFindByKeyword] = useState(true);
+
+  const searchByKeyword = key => {
+    setKeyword(Object.values(key));
+    setPage(1);
+    setLoading(false);
+    setTotal(1);
+    setFindByKeyword(true);
   };
 
-  searchByKeyword = key => {
-    const keywordValue = Object.values(key);
-    this.setState({
-      keyword: keywordValue,
-      page: 1,
-      loading: false,
-      total: 1,
-      findByKeyword: true,
-    });
+  const onLoadMoreClick = () => {
+    setPage(prevSt => prevSt + 1);
   };
 
-  onLoadMoreClick = () => {
-    this.setState(prevSt => ({
-      page: prevSt.page + 1,
-    }));
-  };
+  useEffect(() => {
+    if (!keyword) {
+      return;
+    }
+    setLoading(true);
+    setImages([]);
+  }, [keyword]);
 
-  setImages = (keyword, page) => {
+  useEffect(() => {
+    if (!keyword) {
+      return;
+    }
+    setLoading(true);
+
     getImages(keyword, page)
       .then(resp => resp.json())
       .then(response => {
         if (response.total === 0) {
-          this.setState({
-            images: [],
-            loading: false,
-            findByKeyword: false,
-          });
+          setImages([]);
+          setLoading(false);
+          setFindByKeyword(false);
         } else {
-          this.setState(prevState => ({
-            images: [...prevState.images, ...response.hits],
-            loading: false,
-            findByKeyword: true,
-            total: response.total,
-          }));
+          setImages(prevImage => [...prevImage, ...response.hits]);
+          setLoading(false);
+          setFindByKeyword(true);
+          setTotal(response.total);
         }
       })
       .catch(error => console.error(error));
-  };
-  componentDidUpdate(prevProps, prevState) {
-    if (
-      prevState.keyword !== this.state.keyword ||
-      prevState.page !== this.state.page
-    ) {
-      prevState.keyword !== this.state.keyword
-        ? this.setState({ loading: true, images: [] })
-        : this.setState({ loading: true });
-
-      this.setImages(this.state.keyword, this.state.page);
-    }
-  }
-
-  render() {
-    const { images, keyword, loading, total, findByKeyword, page } = this.state;
-    return (
-      <div>
-        <Searchbar onSubmit={this.searchByKeyword} />
-        {findByKeyword ? (
-          <ImageGallery images={images} />
-        ) : (
-          <ErrorMessage>
-            Sorry, we can't find photo by tag "{keyword}"
-          </ErrorMessage>
-        )}
-        {loading && <Loader />}
-        {total / 12 > page && <Button onClick={this.onLoadMoreClick} />}
-      </div>
-    );
-  }
-}
+  }, [keyword, page]);
+  return (
+    <div>
+      <Searchbar onSubmit={searchByKeyword} />
+      {findByKeyword ? (
+        <ImageGallery images={images} />
+      ) : (
+        <ErrorMessage>
+          Sorry, we can't find photo by tag "{keyword}"
+        </ErrorMessage>
+      )}
+      {loading && <Loader />}
+      {total / 12 > page && <Button onClick={onLoadMoreClick} />}
+    </div>
+  );
+};
